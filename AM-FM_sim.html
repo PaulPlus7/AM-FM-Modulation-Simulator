@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AM/FM Modulation Simulator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            background: #fff;
+            padding: 20px 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 900px;
+            width: 100%;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+            background: #eef2f5;
+            padding: 15px;
+            border-radius: 6px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+            color: #555;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        .toggle-container {
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            flex: 1;
+            padding: 8px;
+            border: 2px solid #3498db;
+            background: white;
+            color: #3498db;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        button.active {
+            background: #3498db;
+            color: white;
+        }
+        canvas {
+            background: #1a1a1a;
+            border-radius: 6px;
+            width: 100%;
+            height: 500px;
+            display: block;
+        }
+        .legend {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 10px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        .legend span { display: flex; align-items: center; gap: 5px; }
+        .box { width: 15px; height: 15px; border-radius: 3px; }
+        .color-baseband { background: #00ffcc; }
+        .color-carrier { background: #888888; }
+        .color-modulated { background: #ff3366; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>RF Modulation Simulator</h1>
+    
+    <div class="controls">
+        <div class="control-group">
+            <label>Modulation Type</label>
+            <div class="toggle-container">
+                <button id="btn-am" class="active" onclick="setModulation('AM')">AM</button>
+                <button id="btn-fm" onclick="setModulation('FM')">FM</button>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <label>Carrier Frequency: <span id="val-fc">15</span> Hz</label>
+            <input type="range" id="slider-fc" min="5" max="40" value="15" step="1">
+        </div>
+        
+        <div class="control-group">
+            <label>Baseband Frequency: <span id="val-fm">1</span> Hz</label>
+            <input type="range" id="slider-fm" min="0.1" max="5" value="1" step="0.1">
+        </div>
+        
+        <div class="control-group">
+            <label>Modulation Index: <span id="val-mi">0.8</span></label>
+            <input type="range" id="slider-mi" min="0" max="2" value="0.8" step="0.1">
+        </div>
+    </div>
+
+    <canvas id="waveCanvas" width="840" height="500"></canvas>
+    
+    <div class="legend">
+        <span><div class="box color-baseband"></div> Baseband (Information)</span>
+        <span><div class="box color-carrier"></div> Carrier Wave</span>
+        <span><div class="box color-modulated"></div> Modulated Signal</span>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('waveCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // State variables
+    let modType = 'AM';
+    let timeOffset = 0;
+    
+    // DOM Elements
+    const sliderFc = document.getElementById('slider-fc');
+    const sliderFm = document.getElementById('slider-fm');
+    const sliderMi = document.getElementById('slider-mi');
+    
+    const valFc = document.getElementById('val-fc');
+    const valFm = document.getElementById('val-fm');
+    const valMi = document.getElementById('val-mi');
+    
+    const btnAm = document.getElementById('btn-am');
+    const btnFm = document.getElementById('btn-fm');
+
+    // Update labels when sliders move
+    sliderFc.oninput = function() { valFc.innerText = this.value; }
+    sliderFm.oninput = function() { valFm.innerText = this.value; }
+    sliderMi.oninput = function() { valMi.innerText = this.value; }
+
+    function setModulation(type) {
+        modType = type;
+        if(type === 'AM') {
+            btnAm.classList.add('active');
+            btnFm.classList.remove('active');
+        } else {
+            btnFm.classList.add('active');
+            btnAm.classList.remove
