@@ -22,6 +22,7 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             max-width: 900px;
             width: 100%;
+            box-sizing: border-box;
         }
         h1 {
             text-align: center;
@@ -49,6 +50,7 @@
         }
         input[type="range"] {
             width: 100%;
+            cursor: pointer;
         }
         .toggle-container {
             display: flex;
@@ -73,15 +75,17 @@
             background: #1a1a1a;
             border-radius: 6px;
             width: 100%;
-            height: 500px;
+            height: 500px; /* Fixed display height */
             display: block;
         }
         .legend {
             display: flex;
+            flex-wrap: wrap;
             justify-content: space-around;
-            margin-top: 10px;
+            margin-top: 15px;
             font-weight: bold;
             font-size: 0.9em;
+            gap: 10px;
         }
         .legend span { display: flex; align-items: center; gap: 5px; }
         .box { width: 15px; height: 15px; border-radius: 3px; }
@@ -99,8 +103,8 @@
         <div class="control-group">
             <label>Modulation Type</label>
             <div class="toggle-container">
-                <button id="btn-am" class="active" onclick="setModulation('AM')">AM</button>
-                <button id="btn-fm" onclick="setModulation('FM')">FM</button>
+                <button id="btn-am" class="active">AM</button>
+                <button id="btn-fm">FM</button>
             </div>
         </div>
         
@@ -120,7 +124,7 @@
         </div>
     </div>
 
-    <canvas id="waveCanvas" width="840" height="500"></canvas>
+    <canvas id="waveCanvas"></canvas>
     
     <div class="legend">
         <span><div class="box color-baseband"></div> Baseband (Information)</span>
@@ -130,6 +134,7 @@
 </div>
 
 <script>
+document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById('waveCanvas');
     const ctx = canvas.getContext('2d');
     
@@ -149,16 +154,106 @@
     const btnAm = document.getElementById('btn-am');
     const btnFm = document.getElementById('btn-fm');
 
-    // Update labels when sliders move
-    sliderFc.oninput = function() { valFc.innerText = this.value; }
-    sliderFm.oninput = function() { valFm.innerText = this.value; }
-    sliderMi.oninput = function() { valMi.innerText = this.value; }
+    // Sync internal canvas resolution with CSS display size
+    function resizeCanvas() {
+        canvas.width = canvas.clientWidth;
+        canvas.height = canvas.clientHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas(); // Initial size setting
 
-    function setModulation(type) {
-        modType = type;
-        if(type === 'AM') {
-            btnAm.classList.add('active');
-            btnFm.classList.remove('active');
-        } else {
-            btnFm.classList.add('active');
-            btnAm.classList.remove
+    // Slider Listeners
+    sliderFc.addEventListener('input', (e) => { valFc.innerText = e.target.value; });
+    sliderFm.addEventListener('input', (e) => { valFm.innerText = e.target.value; });
+    sliderMi.addEventListener('input', (e) => { valMi.innerText = e.target.value; });
+
+    // Button Listeners
+    btnAm.addEventListener('click', () => {
+        modType = 'AM';
+        btnAm.classList.add('active');
+        btnFm.classList.remove('active');
+    });
+
+    btnFm.addEventListener('click', () => {
+        modType = 'FM';
+        btnFm.classList.add('active');
+        btnAm.classList.remove('active');
+    });
+
+    // Drawing Logic
+    function drawWave(yCenter, color, calculateY) {
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        
+        for (let x = 0; x < canvas.width; x++) {
+            // Map x pixel to a time value
+            let t = (x / 100) + timeOffset; 
+            
+            // Calculate the amplitude (y-axis)
+            let y = calculateY(t);
+            
+            // Shift down to the correct visual row, scale amplitude by 45 pixels
+            let canvasY = yCenter - (y * 45); 
+            
+            if (x === 0) ctx.moveTo(x, canvasY);
+            else ctx.lineTo(x, canvasY);
+        }
+        ctx.stroke();
+    }
+
+    function animate() {
+        // Clear previous frame
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Calculate proportional row centers based on current canvas height
+        const rowHeight = canvas.height / 3;
+        const center1 = rowHeight * 0.5;
+        const center2 = rowHeight * 1.5;
+        const center3 = rowHeight * 2.5;
+
+        // Draw faint horizontal grid lines
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1;
+        [center1, center2, center3].forEach(y => {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(canvas.width, y);
+            ctx.stroke();
+        });
+
+        // Parse current slider values
+        const fc = parseFloat(sliderFc.value);
+        const fm = parseFloat(sliderFm.value);
+        const mi = parseFloat(sliderMi.value);
+
+        // 1. Baseband Signal (Top Row)
+        drawWave(center1, '#00ffcc', (t) => {
+            return Math.sin(2 * Math.PI * fm * t);
+        });
+
+        // 2. Carrier Signal (Middle Row)
+        drawWave(center2, '#888888', (t) => {
+            return Math.sin(2 * Math.PI * fc * t);
+        });
+
+        // 3. Modulated Signal (Bottom Row)
+        drawWave(center3, '#ff3366', (t) => {
+            const baseband = Math.sin(2 * Math.PI * fm * t);
+            if (modType === 'AM') {
+                return (1 + mi * baseband) * Math.sin(2 * Math.PI * fc * t) * 0.5;
+            } else {
+                return Math.sin((2 * Math.PI * fc * t) + (mi * 5 * baseband));
+            }
+        });
+
+        timeOffset += 0.015; 
+        requestAnimationFrame(animate);
+    }
+
+    // Start loop
+    animate();
+});
+</script>
+</body>
+</html>
